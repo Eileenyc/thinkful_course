@@ -1,0 +1,106 @@
+-- Thinkful 1.2.5 Airbnb 
+Listings for Denver
+
+-- 1. What's the most expensive listing? What else can you tell me about the listing?
+select *
+from listings
+order by price desc
+limit 1;
+
+
+The most expensive listing is named Charming Downtown/Cap Hill Apt - Walk Everywhere!
+	* the listing id is '14296973'
+	* It is professionally managed by a place called Effortless Rental group 
+	* Claims to give you $50 in lyft ride credits
+	* there is a parking spot etc.
+	* the apt is located in Cheesman Park
+	* its a 1 bedroom 1 bathroom for $999 a day?
+	* 8.45 reviews per month
+
+
+This listing doesn't actually cost $999 though, under calendar its typically rented for 
+between $95-$250 with an average price of $109.85 it sounds like low end is more common 
+than the high price
+select max(price) as max_price
+	,min(price) as min_price
+	,avg(price) as avg_price
+	,count(*) as counts
+from calendar
+where listing_id ='14296973';
+
+Since Calendar and listings didn't match up I wanted to see if this happend more than once 
+and it turns out there are 20 listings with $9999 listed as their price, which I just 
+realized may be a result of me neglecting to change the datatype after I removed 
+the dollar signs from the data.
+
+Now that price is an Integer there are two listings coming up as $10,000. 
+looking at their calendars it seems that only 1 of the three listings 
+posted but was never occupied
+select *
+from calendar
+where listing_id ='24673859' or listing_id='26840749' or listing_id= '13523589';
+
+Now I'm really curious what the highest price a listing was occupied for according the calendar
+The actual listing is '15436226' as $7000 but these dates are in the future so i don't 
+feel great about that. When I looked at the listing it is located in West Colfax and 
+is currently under construction which explains the future dates
+select *
+from calendar
+where available='t'
+order by price desc
+limit 100;
+
+-- 2. What neighborhoods seem to be the most popular?
+select avg(case when calendar.available= 't' then 1 else 0 end) as fill_rate
+	,sum(case when calendar.available= 't' then 1 else 0 end) as occupied_nights
+	,listings.neighbourhood
+from listings
+left join calendar
+on listings.id = calendar.listing_id
+	group by listings.neighbourhood
+	order by occupied_nights DESC;
+
+by occupied nights it seems to be Five Points with 43,620 nights
+by fill rate Golden Triangle had a fill rate of 84% though they had a fraction 
+of the occupied nights as Five points with 3,083
+
+-- 3. What time of year is the cheapest time to go to your city? What about the busiest?
+-- find out the max and min dates for this dataset
+select max(date(date)) as max_date	
+	,min(date(date)) as min_date
+from calendar_date;
+-- it was '2019-08-28' to '2018-08-27'
+
+-- spring = 03-01 to 06-01
+-- summer = 06-01 to 09-01
+-- fall = 09-01 to 12-01
+-- winter = 12-01 to 03-01
+select avg(replace(price, '$', '')) as avg_price
+,case when date(date) < date('2018-09-01') then 'summer'
+	when date(date) < date('2018-12-01') then 'fall'
+	when date(date) < date('2019-03-01') then 'winter'
+	when date(date) < date('2019-06-01') then 'spring'
+	when date(date) < date('2019-09-01') then 'summer'
+	else 'error' end as season_name
+from calendar_date
+group by season_name; 
+
+Average price for filled dates  was $143.12(fall), $151.11(winter), 
+$167.39(spring), $170.65(summer)
+
+-- busiest time of year
+select avg(case when available= 't' then 1 else 0 end) as fill_rate
+,sum(case when available= 't' then 1 else 0 end) as occupied_nights
+,case when date(date) < date('2018-09-01') then 'summer'
+	when date(date) < date('2018-12-01') then 'fall'
+	when date(date) < date('2019-03-01') then 'winter'
+	when date(date) < date('2019-06-01') then 'spring'
+	when date(date) < date('2019-09-01') then 'summer'
+	else 'error' end as season_name
+from calendar_date
+group by season_name; 
+
+the busiest time of year by occupied nights and fill rate is winter 
+with 212,285 occupied nights and a 47% fill rate
+
+
